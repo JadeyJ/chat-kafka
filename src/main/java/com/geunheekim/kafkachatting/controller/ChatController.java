@@ -1,0 +1,40 @@
+package com.geunheekim.kafkachatting.controller;
+
+import com.geunheekim.kafkachatting.constant.KafkaConstants;
+import com.geunheekim.kafkachatting.model.Message;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+
+import java.time.LocalDateTime;
+import java.util.concurrent.ExecutionException;
+
+@RestController
+public class ChatController {
+    @Autowired
+    private KafkaTemplate<String, Message> kafkaTemplate;
+
+    @PostMapping(value = "/api/send", consumes = "application/json", produces = "application/json")
+    public void sendMessage(@RequestBody Message message) {
+        message.setTimestamp(LocalDateTime.now().toString());
+        try {
+            // 메시지를 kafka 토픽 큐에 보내기
+            kafkaTemplate.send(KafkaConstants.KAFKA_TOPIC, message).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @MessageMapping("/sendMessage")
+    @SendTo("/topic/group")
+    public Message broadcastGroupMessage(@Payload Message message) {
+        // 전체에게 메시지 보내기
+        return message;
+    }
+}
